@@ -16,6 +16,7 @@ const CUSTATEVEC_COLLAPSE_NONE = 0
 const CUSTATEVEC_COLLAPSE_NORMALIZE_AND_ZERO = 1
 
 include("../utils/utils.jl")
+include("../utils/macros.jl")
 
 #! Library Management API (https://docs.nvidia.com/cuda/cuquantum/latest/custatevec/api/functions.html#library-management)
 
@@ -115,7 +116,7 @@ function custatevecSetWorkspace(handle::custatevecHandle, workspaceSize::Ref{Csi
     return handle
 end
 function custatevecSetWorkspace(handle::custatevecHandle, workspaceSize::Integer)
-    @assert workspaceSize > 0 "workspaceSize must be a positive integer"
+    @domain workspaceSize > 0 "workspaceSize must be a positive integer"
     status = ccall(
         ("custatevecSetWorkspace", cuQuantum_jll.libcustatevec),
         Cint,
@@ -138,7 +139,7 @@ end
 
 #! Error Management API (https://docs.nvidia.com/cuda/cuquantum/latest/custatevec/api/types.html#_CPPv418custatevecStatus_t)
 function custatevecStatus(status::Integer)
-    @assert 0 < status <= 14 "Invalid status code"
+    @domain 0 < status <= 14 "Invalid status code"
     if status == 1
         println("custatevecStatus: The library handle was not initialized.")
     elseif status == 2
@@ -174,7 +175,7 @@ end
 
 #! Versioning API
 function custatevecGetProperty(property::Integer)
-    @assert property in [0, 1, 2] "Invalid property. 0 = Major, 1 = Minor, 2 = Patch"
+    @argument property in [0, 1, 2] "Invalid property. 0 = Major, 1 = Minor, 2 = Patch"
     value = Ref{Cint}(0)
     status = ccall(
         ("custatevecGetProperty", cuQuantum_jll.libcustatevec),
@@ -204,8 +205,8 @@ struct custatevecStateVector
     dim::Int64
 
     function custatevecStateVector(handle::custatevecHandle, nqubits::Integer; state=:zero)
-        @assert nqubits > 0 "n must be a positive integer"
-        @assert state in [:zero, :uniform, :ghz, :w] "Invalid state. Supported states are :zero, :uniform, :ghz, :w"
+        @domain nqubits > 0 "n must be a positive integer"
+        @argument state in [:zero, :uniform, :ghz, :w] "Invalid state. Supported states are :zero, :uniform, :ghz, :w"
         dim = 1 << nqubits
         memory = CUDA.zeros(ComplexF64, dim)
 
@@ -272,7 +273,7 @@ function custatevecInitializeStateVector(nqubits::Integer; state=:zero)
     return custatevecStateVector(handle, nqubits, state=state)
 end
 function custatevecInitializeStateVector!(stateVector::custatevecStateVector; state=:zero)
-    @assert state in [:zero, :uniform, :ghz, :w] "Invalid state. Supported states are :zero, :uniform, :ghz, :w"
+    @argument state in [:zero, :uniform, :ghz, :w] "Invalid state. Supported states are :zero, :uniform, :ghz, :w"
 
     state_type = CUSTATEVEC_STATE_VECTOR_TYPE_ZERO
     if state == :uniform
@@ -415,9 +416,9 @@ function custatevecApplyMatrix!(state::custatevecStateVector, gate::custatevecGa
     return custatevecApplyMatrix!(state, gate, [targetQubits...])
 end
 function custatevecApplyMatrix!(state::custatevecStateVector, gate::custatevecGate, targetQubits::AbstractVector{T}; controlQubits::AbstractVector{T}=Int64[]) where {T<:Integer}
-    @assert length(targetQubits) > 0 "targetQubits must be a non-empty vector"
-    @assert all(1 <= targetQubit <= state.nqubits for targetQubit in targetQubits) "targetQubits must be valid qubit indices"
-    @assert all(1 <= controlQubit <= state.nqubits for controlQubit in controlQubits) "controlQubits must be valid qubit indices"
+    @domain length(targetQubits) > 0 "targetQubits must be a non-empty vector"
+    @domain all(1 <= targetQubit <= state.nqubits for targetQubit in targetQubits) "targetQubits must be valid qubit indices"
+    @domain all(1 <= controlQubit <= state.nqubits for controlQubit in controlQubits) "controlQubits must be valid qubit indices"
 
     # convert to 0-based indexing
     targetQubits .-= 1
@@ -497,8 +498,8 @@ function custatevecMeasureOnZBasis!(state::custatevecStateVector, targetQubit::I
 end
 
 function custatevecMeasureOnZBasis!(state::custatevecStateVector, targetQubits::AbstractVector{T}; collapse_state::Bool=true) where {T<:Integer}
-    @assert length(targetQubits) > 0 "targetQubits must be a non-empty vector"
-    @assert all(1 <= targetQubit <= state.nqubits for targetQubit in targetQubits) "targetQubits must be valid qubit indices"
+    @domain length(targetQubits) > 0 "targetQubits must be a non-empty vector"
+    @domain all(1 <= targetQubit <= state.nqubits for targetQubit in targetQubits) "targetQubits must be valid qubit indices"
     # convert to 0-based indexing
     targetQubits .-= 1 #? Not needed
 
